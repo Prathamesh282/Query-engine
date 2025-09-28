@@ -1,238 +1,343 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Query Engine</title>
+    <title>AI Natural Language Query Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .spinner { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        :root {
+            --background-light: #f7fafc;
+            --background-dark: #1a202c;
+            --text-light: #2d3748;
+            --text-dark: #e2e8f0;
+            --card-bg-light: #ffffff;
+            --card-bg-dark: #2d3748;
+            --border-light: #e2e8f0;
+            --border-dark: #4a5568;
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .spinner { border-top-color: #4f46e5; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .icon-success { color: #10b981; }
+        .icon-error { color: #ef4444; }
+        .icon-info { color: #3b82f6; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.connected { background-color: #10b981; }
+        .status-dot.disconnected { background-color: #ef4444; }
+        .drag-over { border-style: dashed; border-color: #4f46e5; }
+        table th { background-color: #f9fafb; }
+        html.dark table th { background-color: #374151; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-    <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900">AI Natural Language Query Engine</h1>
-            <p class="text-lg text-gray-600 mt-2">Connect to your data and ask questions in plain English.</p>
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <svg class="h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">AI Query Engine</h1>
+                    </div>
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+                        <svg id="theme-icon-light" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <svg id="theme-icon-dark" class="h-6 w-6 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                    </button>
+                </div>
+            </div>
         </header>
 
-        <!-- Data Ingestion Section -->
-        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <h2 class="text-2xl font-semibold mb-4 border-b pb-2">1. Connect Your Data</h2>
-            <div class="grid md:grid-cols-2 gap-6">
-                <!-- Database Connector -->
-                <div id="database-connector">
-                    <h3 class="text-xl font-medium mb-3">Connect to Database</h3>
-                    <form id="db-form">
-                        <input type="text" id="db-connection-string" placeholder="e.g., sqlite:///company.db" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 transition" required>
-                        <button type="submit" class="w-full mt-3 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-semibold">Connect & Analyze</button>
-                    </form>
-                    <div id="db-status" class="mt-3 text-sm"></div>
-                    <div id="schema-visualization" class="mt-4 p-3 bg-gray-50 rounded-md border max-h-60 overflow-y-auto hidden">
-                        <h4 class="font-semibold mb-2">Discovered Schema:</h4>
-                        <pre id="schema-content" class="text-xs whitespace-pre-wrap"></pre>
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            <!-- Page Title and Description -->
+            <div class="text-center mb-10">
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">AI Natural Language Query Engine</h1>
+                <p class="mt-3 text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">Connect to your data sources, upload documents, and ask complex questions in plain English to get answers instantly.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Panel: Data Ingestion -->
+                <div class="lg:col-span-1 space-y-8">
+                    <!-- Database Connection -->
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-semibold">Database Connection</h2>
+                            <div id="db-connection-status-dot" class="status-dot disconnected" title="Disconnected"></div>
+                        </div>
+                        <form id="db-form" class="space-y-4">
+                            <input type="text" id="db-connection-string" placeholder="sqlite:///company.db" class="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 transition">
+                            <button type="submit" class="w-full flex justify-center items-center bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition font-semibold disabled:bg-indigo-400">
+                                Connect & Analyze
+                            </button>
+                        </form>
+                        <div id="db-status" class="mt-4 text-sm font-medium"></div>
+                        <div id="schema-visualization" class="mt-4 hidden">
+                            <h4 class="font-semibold mb-2">Discovered Schema</h4>
+                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 max-h-48 overflow-y-auto">
+                                <pre id="schema-content" class="text-xs whitespace-pre-wrap"></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Upload -->
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+                         <h2 class="text-xl font-semibold mb-4">Document Ingestion</h2>
+                        <div id="drop-zone" class="flex flex-col items-center justify-center w-full p-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h.586a1 1 0 01.707.293l.414.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l.414-.414a1 1 0 01.707-.293H17a4 4 0 014 4v5a4 4 0 01-4 4H7z"></path></svg>
+                            <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">PDF, DOCX, TXT (max 10MB each)</p>
+                            <input id="doc-files" type="file" multiple class="hidden">
+                        </div>
+                        <button id="upload-btn" class="w-full mt-4 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition font-semibold disabled:bg-gray-400" disabled>Upload Files</button>
+                        <div id="doc-status" class="mt-4 text-sm font-medium"></div>
                     </div>
                 </div>
-                <!-- Document Uploader -->
-                <div id="document-uploader">
-                    <h3 class="text-xl font-medium mb-3">Upload Documents</h3>
-                    <form id="doc-form">
-                        <input type="file" id="doc-files" multiple class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
-                        <button type="submit" class="w-full mt-3 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition font-semibold">Upload & Index</button>
+
+                <!-- Right Panel: Query & Results -->
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Query Interface</h2>
+                    <form id="query-form" class="relative">
+                        <textarea id="query-input" placeholder="Ask anything... e.g., 'Show me engineers hired this year with Python skills'" class="w-full p-3 pr-28 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 transition resize-none" rows="4"></textarea>
+                        <button type="submit" class="absolute bottom-3 right-3 bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition font-semibold disabled:bg-indigo-400 flex items-center" disabled>
+                            <svg class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            Query
+                        </button>
                     </form>
-                    <div id="doc-status" class="mt-3 text-sm"></div>
+
+                    <!-- Results Display -->
+                    <div class="mt-6">
+                        <div id="results-placeholder" class="text-center py-10 text-gray-500 dark:text-gray-400">
+                            <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            <h3 class="mt-2 text-sm font-medium">Results will appear here</h3>
+                            <p class="mt-1 text-sm">Connect to a data source and ask a question to get started.</p>
+                        </div>
+                        <div id="results-view" class="hidden space-y-6">
+                            <div id="query-metrics" class="text-xs text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 flex justify-between items-center"></div>
+                            <div id="results-content" class="space-y-6"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Query Section -->
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-2xl font-semibold mb-4 border-b pb-2">2. Ask a Question</h2>
-            <form id="query-form">
-                <textarea id="query-input" placeholder="e.g., 'Show me all Python developers in Engineering' or 'What is in John's resume?'" class="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 transition" rows="3" required></textarea>
-                <button type="submit" class="w-full mt-3 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition font-semibold">Process Query</button>
-            </form>
-
-            <!-- Results Display -->
-            <div id="results-view" class="mt-6 hidden">
-                <h3 class="text-xl font-medium mb-3">Results</h3>
-                <div id="query-metrics" class="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded-md border"></div>
-                <div id="results-content"></div>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
         const API_BASE_URL = "http://127.0.0.1:8000/api";
 
-        // DOM Elements
-        const dbForm = document.getElementById('db-form');
-        const dbConnectionStringInput = document.getElementById('db-connection-string');
-        const dbStatus = document.getElementById('db-status');
-        const schemaVisualization = document.getElementById('schema-visualization');
-        const schemaContent = document.getElementById('schema-content');
+        // --- DOM Element Cache ---
+        const dom = {
+            dbForm: document.getElementById('db-form'),
+            dbConnectionStringInput: document.getElementById('db-connection-string'),
+            dbStatus: document.getElementById('db-status'),
+            dbConnectionStatusDot: document.getElementById('db-connection-status-dot'),
+            schemaVisualization: document.getElementById('schema-visualization'),
+            schemaContent: document.getElementById('schema-content'),
+            docFilesInput: document.getElementById('doc-files'),
+            docStatus: document.getElementById('doc-status'),
+            dropZone: document.getElementById('drop-zone'),
+            uploadBtn: document.getElementById('upload-btn'),
+            queryForm: document.getElementById('query-form'),
+            queryInput: document.getElementById('query-input'),
+            querySubmitBtn: document.querySelector('#query-form button'),
+            resultsView: document.getElementById('results-view'),
+            resultsPlaceholder: document.getElementById('results-placeholder'),
+            queryMetrics: document.getElementById('query-metrics'),
+            resultsContent: document.getElementById('results-content'),
+            themeToggle: document.getElementById('theme-toggle'),
+            themeIconLight: document.getElementById('theme-icon-light'),
+            themeIconDark: document.getElementById('theme-icon-dark'),
+        };
 
-        const docForm = document.getElementById('doc-form');
-        const docFilesInput = document.getElementById('doc-files');
-        const docStatus = document.getElementById('doc-status');
+        // --- State ---
+        let state = {
+            currentConnectionString: '',
+            filesToUpload: [],
+        };
 
-        const queryForm = document.getElementById('query-form');
-        const queryInput = document.getElementById('query-input');
-        const resultsView = document.getElementById('results-view');
-        const queryMetrics = document.getElementById('query-metrics');
-        const resultsContent = document.getElementById('results-content');
+        // --- UI Helper Functions ---
+        const setStatus = (el, message, type) => {
+            const colors = {
+                success: 'text-green-600 dark:text-green-400',
+                error: 'text-red-600 dark:text-red-400',
+                info: 'text-blue-600 dark:text-blue-400'
+            };
+            const icons = {
+                success: '<svg class="w-4 h-4 mr-2 inline-block" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',
+                error: '<svg class="w-4 h-4 mr-2 inline-block" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',
+                info: '<svg class="w-5 h-5 mr-2 inline-block animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>'
+            };
+            el.innerHTML = `${icons[type] || ''} ${message}`;
+            el.className = `mt-4 text-sm font-medium ${colors[type] || 'text-gray-600 dark:text-gray-400'}`;
+        };
+
+        const renderResults = (data) => {
+            let html = '';
+            // SQL Results
+            if (data.sql_result && !data.sql_result.error && data.sql_result.length > 0) {
+                html += '<div class="fade-in"> <h4 class="text-lg font-semibold mb-2">Database Results</h4>';
+                const headers = Object.keys(data.sql_result[0]);
+                html += '<div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700"><table class="w-full text-sm text-left">';
+                html += '<thead class="text-xs text-gray-700 dark:text-gray-300 uppercase"><tr>';
+                headers.forEach(h => html += `<th scope="col" class="px-6 py-3">${h}</th>`);
+                html += '</tr></thead><tbody>';
+                data.sql_result.forEach(row => {
+                    html += `<tr class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">${headers.map(h => `<td class="px-6 py-4">${row[h]}</td>`).join('')}</tr>`;
+                });
+                html += '</tbody></table></div></div>';
+            } else if (data.sql_result && data.sql_result.error) {
+                 html += `<div class="fade-in p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert"><span class="font-medium">SQL Error:</span> ${data.sql_result.error}</div>`;
+            }
+            // Document Results
+            if (data.doc_result && data.doc_result.length > 0) {
+                html += '<div class="fade-in"><h4 class="text-lg font-semibold mt-6 mb-2">Document Results</h4><div class="space-y-4">';
+                data.doc_result.forEach(doc => {
+                    html += `<div class="bg-gray-50 dark:bg-gray-700 p-4 border border-gray-200 dark:border-gray-600 rounded-lg"><p class="text-gray-800 dark:text-gray-200">${doc.content.replace(/\n/g, '<br>')}</p><span class="text-xs text-indigo-500 mt-2 block">Relevance Score: ${doc.score.toFixed(4)}</span></div>`;
+                });
+                html += '</div></div>';
+            }
+            dom.resultsContent.innerHTML = html || '<p class="text-gray-500 dark:text-gray-400">No results found for this query.</p>';
+        };
         
-        let currentConnectionString = '';
-
-        // --- Event Listeners ---
-
-        // 1. Database Connection
-        dbForm.addEventListener('submit', async (e) => {
+        // --- Event Handlers ---
+        dom.dbForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const connString = dbConnectionStringInput.value;
-            setDbStatus('Connecting...', 'text-gray-600');
+            const connString = dom.dbConnectionStringInput.value;
+            setStatus(dom.dbStatus, 'Connecting...', 'info');
+            dom.dbConnectionStatusDot.classList.remove('connected', 'disconnected');
             
             try {
                 const response = await fetch(`${API_BASE_URL}/ingest/database`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ connection_string: connString })
                 });
-
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || 'Failed to connect');
 
                 const tableCount = Object.keys(data.schema.tables).length;
-                setDbStatus(`Success! Discovered ${tableCount} tables.`, 'text-green-600');
-                schemaContent.textContent = JSON.stringify(data.schema, null, 2);
-                schemaVisualization.classList.remove('hidden');
-                currentConnectionString = connString;
+                setStatus(dom.dbStatus, `Success! Discovered ${tableCount} tables.`, 'success');
+                dom.dbConnectionStatusDot.classList.add('connected');
+                dom.schemaContent.textContent = JSON.stringify(data.schema, null, 2);
+                dom.schemaVisualization.classList.remove('hidden');
+                state.currentConnectionString = connString;
+                dom.querySubmitBtn.disabled = false;
             } catch (error) {
-                setDbStatus(`Error: ${error.message}`, 'text-red-600');
-                schemaVisualization.classList.add('hidden');
+                setStatus(dom.dbStatus, `Error: ${error.message}`, 'error');
+                dom.dbConnectionStatusDot.classList.add('disconnected');
+                dom.schemaVisualization.classList.add('hidden');
+                dom.querySubmitBtn.disabled = true;
             }
         });
 
-        // 2. Document Upload
-        docForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const files = docFilesInput.files;
-            if (files.length === 0) {
-                setDocStatus('Please select files to upload.', 'text-red-600');
-                return;
+        const handleFiles = (files) => {
+            state.filesToUpload = Array.from(files);
+            if (state.filesToUpload.length > 0) {
+                setStatus(dom.docStatus, `${state.filesToUpload.length} file(s) selected. Ready to upload.`, 'info');
+                dom.uploadBtn.disabled = false;
+            } else {
+                dom.docStatus.innerHTML = '';
+                dom.uploadBtn.disabled = true;
             }
+        };
 
+        dom.dropZone.addEventListener('click', () => dom.docFilesInput.click());
+        dom.docFilesInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dom.dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dom.dropZone.addEventListener(eventName, () => dom.dropZone.classList.add('drag-over'), false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dom.dropZone.addEventListener(eventName, () => dom.dropZone.classList.remove('drag-over'), false);
+        });
+        dom.dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+        
+        dom.uploadBtn.addEventListener('click', async () => {
+            if (state.filesToUpload.length === 0) return;
             const formData = new FormData();
-            for (const file of files) {
-                formData.append('files', file);
-            }
-
-            setDocStatus(`Uploading ${files.length} documents...`, 'text-gray-600');
-
+            state.filesToUpload.forEach(file => formData.append('files', file));
+            setStatus(dom.docStatus, `Uploading ${state.filesToUpload.length} documents...`, 'info');
             try {
-                const response = await fetch(`${API_BASE_URL}/ingest/documents`, {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch(`${API_BASE_URL}/ingest/documents`, { method: 'POST', body: formData });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || 'Upload failed');
-                
-                setDocStatus(data.message, 'text-green-600');
+                setStatus(dom.docStatus, data.message, 'success');
+                state.filesToUpload = [];
+                dom.uploadBtn.disabled = true;
+                dom.docFilesInput.value = '';
             } catch (error) {
-                setDocStatus(`Error: ${error.message}`, 'text-red-600');
+                setStatus(dom.docStatus, `Error: ${error.message}`, 'error');
             }
         });
-        
-        // 3. Query Processing
-        queryForm.addEventListener('submit', async (e) => {
+
+        dom.queryForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const query = queryInput.value;
-            if (!currentConnectionString) {
-                alert('Please connect to a database first.');
+            const query = dom.queryInput.value;
+            if (!state.currentConnectionString) {
+                setStatus(dom.dbStatus, 'Please connect to a database first.', 'error');
                 return;
             }
-
-            resultsView.classList.remove('hidden');
-            resultsContent.innerHTML = `<div class="flex justify-center items-center"><div class="spinner w-8 h-8 border-4 rounded-full"></div><span class="ml-3">Processing query...</span></div>`;
-            queryMetrics.textContent = '';
-            
+            dom.resultsView.classList.remove('hidden');
+            dom.resultsPlaceholder.classList.add('hidden');
+            dom.resultsContent.innerHTML = `<div class="flex justify-center items-center py-10"><div class="spinner w-8 h-8 border-4 rounded-full"></div><span class="ml-4 font-medium">Thinking...</span></div>`;
+            dom.queryMetrics.textContent = '';
             const startTime = performance.now();
-
             try {
-                 const response = await fetch(`${API_BASE_URL}/query`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, connection_string: currentConnectionString })
+                const response = await fetch(`${API_BASE_URL}/query`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query, connection_string: state.currentConnectionString })
                 });
-                
                 const endTime = performance.now();
                 const responseTime = ((endTime - startTime) / 1000).toFixed(2);
-                
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || 'Query failed');
-
-                // Display Metrics
                 const cacheStatus = data.cache_hit ? 'HIT' : 'MISS';
-                queryMetrics.textContent = `Response Time: ${responseTime}s | Cache Status: ${cacheStatus} | Query Type: ${data.query_type}`;
-                
-                // Render Results
+                dom.queryMetrics.innerHTML = `<span class="font-semibold">Time:</span> ${responseTime}s | <span class="font-semibold">Cache:</span> <span class="${data.cache_hit ? 'text-green-500' : 'text-yellow-500'}">${cacheStatus}</span> | <span class="font-semibold">Type:</span> ${data.query_type}`;
                 renderResults(data);
-
             } catch(error) {
-                 resultsContent.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+                 dom.resultsContent.innerHTML = `<div class="p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert"><span class="font-medium">Error:</span> ${error.message}</div>`;
             }
         });
-
-        // --- Helper Functions ---
-        function setDbStatus(message, colorClass) {
-            dbStatus.textContent = message;
-            dbStatus.className = `mt-3 text-sm ${colorClass}`;
-        }
-
-        function setDocStatus(message, colorClass) {
-            docStatus.textContent = message;
-            docStatus.className = `mt-3 text-sm ${colorClass}`;
-        }
         
-        function renderResults(data) {
-            let html = '';
-            
-            // SQL Results
-            if (data.sql_result && data.sql_result.length > 0) {
-                html += '<h4 class="text-lg font-semibold mb-2">Database Results</h4>';
-                const headers = Object.keys(data.sql_result[0]);
-                html += '<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-500">';
-                html += '<thead class="text-xs text-gray-700 uppercase bg-gray-50">';
-                html += `<tr>${headers.map(h => `<th scope="col" class="px-6 py-3">${h}</th>`).join('')}</tr></thead>`;
-                html += '<tbody>';
-                data.sql_result.forEach(row => {
-                    html += `<tr class="bg-white border-b">${headers.map(h => `<td class="px-6 py-4">${row[h]}</td>`).join('')}</tr>`;
-                });
-                html += '</tbody></table></div>';
+        // --- Theme Toggle ---
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                dom.themeIconLight.classList.add('hidden');
+                dom.themeIconDark.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                dom.themeIconLight.classList.remove('hidden');
+                dom.themeIconDark.classList.add('hidden');
             }
-            
-            // Document Results
-            if (data.doc_result && data.doc_result.length > 0) {
-                html += '<h4 class="text-lg font-semibold mt-4 mb-2">Document Results</h4>';
-                html += '<div class="grid gap-4">';
-                data.doc_result.forEach(doc => {
-                    html += `<div class="bg-gray-50 p-4 border rounded-md"><p class="text-gray-700">${doc.content.replace(/\n/g, '<br>')}</p><span class="text-xs text-blue-500 mt-2 block">Relevance Score: ${doc.score.toFixed(4)}</span></div>`;
-                });
-                html += '</div>';
-            }
-            
-            if (!html) {
-                html = '<p class="text-gray-600">No results found.</p>';
-            }
-
-            resultsContent.innerHTML = html;
-        }
+        };
+        dom.themeToggle.addEventListener('click', () => {
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        });
+        
+        // --- Initial Load ---
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        applyTheme(savedTheme);
 
     </script>
-
 </body>
 </html>
