@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Query Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .spinner { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">AI Natural Language Query Engine</h1>
+            <p class="text-lg text-gray-600 mt-2">Connect to your data and ask questions in plain English.</p>
+        </header>
+
+        <!-- Data Ingestion Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold mb-4 border-b pb-2">1. Connect Your Data</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Database Connector -->
+                <div id="database-connector">
+                    <h3 class="text-xl font-medium mb-3">Connect to Database</h3>
+                    <form id="db-form">
+                        <input type="text" id="db-connection-string" placeholder="e.g., sqlite:///company.db" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 transition" required>
+                        <button type="submit" class="w-full mt-3 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-semibold">Connect & Analyze</button>
+                    </form>
+                    <div id="db-status" class="mt-3 text-sm"></div>
+                    <div id="schema-visualization" class="mt-4 p-3 bg-gray-50 rounded-md border max-h-60 overflow-y-auto hidden">
+                        <h4 class="font-semibold mb-2">Discovered Schema:</h4>
+                        <pre id="schema-content" class="text-xs whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+                <!-- Document Uploader -->
+                <div id="document-uploader">
+                    <h3 class="text-xl font-medium mb-3">Upload Documents</h3>
+                    <form id="doc-form">
+                        <input type="file" id="doc-files" multiple class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                        <button type="submit" class="w-full mt-3 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition font-semibold">Upload & Index</button>
+                    </form>
+                    <div id="doc-status" class="mt-3 text-sm"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Query Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 border-b pb-2">2. Ask a Question</h2>
+            <form id="query-form">
+                <textarea id="query-input" placeholder="e.g., 'Show me all Python developers in Engineering' or 'What is in John's resume?'" class="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 transition" rows="3" required></textarea>
+                <button type="submit" class="w-full mt-3 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition font-semibold">Process Query</button>
+            </form>
+
+            <!-- Results Display -->
+            <div id="results-view" class="mt-6 hidden">
+                <h3 class="text-xl font-medium mb-3">Results</h3>
+                <div id="query-metrics" class="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded-md border"></div>
+                <div id="results-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000/api";
+
+        // DOM Elements
+        const dbForm = document.getElementById('db-form');
+        const dbConnectionStringInput = document.getElementById('db-connection-string');
+        const dbStatus = document.getElementById('db-status');
+        const schemaVisualization = document.getElementById('schema-visualization');
+        const schemaContent = document.getElementById('schema-content');
+
+        const docForm = document.getElementById('doc-form');
+        const docFilesInput = document.getElementById('doc-files');
+        const docStatus = document.getElementById('doc-status');
+
+        const queryForm = document.getElementById('query-form');
+        const queryInput = document.getElementById('query-input');
+        const resultsView = document.getElementById('results-view');
+        const queryMetrics = document.getElementById('query-metrics');
+        const resultsContent = document.getElementById('results-content');
+        
+        let currentConnectionString = '';
+
+        // --- Event Listeners ---
+
+        // 1. Database Connection
+        dbForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const connString = dbConnectionStringInput.value;
+            setDbStatus('Connecting...', 'text-gray-600');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingest/database`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ connection_string: connString })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Failed to connect');
+
+                const tableCount = Object.keys(data.schema.tables).length;
+                setDbStatus(`Success! Discovered ${tableCount} tables.`, 'text-green-600');
+                schemaContent.textContent = JSON.stringify(data.schema, null, 2);
+                schemaVisualization.classList.remove('hidden');
+                currentConnectionString = connString;
+            } catch (error) {
+                setDbStatus(`Error: ${error.message}`, 'text-red-600');
+                schemaVisualization.classList.add('hidden');
+            }
+        });
+
+        // 2. Document Upload
+        docForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const files = docFilesInput.files;
+            if (files.length === 0) {
+                setDocStatus('Please select files to upload.', 'text-red-600');
+                return;
+            }
+
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('files', file);
+            }
+
+            setDocStatus(`Uploading ${files.length} documents...`, 'text-gray-600');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingest/documents`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Upload failed');
+                
+                setDocStatus(data.message, 'text-green-600');
+            } catch (error) {
+                setDocStatus(`Error: ${error.message}`, 'text-red-600');
+            }
+        });
+        
+        // 3. Query Processing
+        queryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = queryInput.value;
+            if (!currentConnectionString) {
+                alert('Please connect to a database first.');
+                return;
+            }
+
+            resultsView.classList.remove('hidden');
+            resultsContent.innerHTML = `<div class="flex justify-center items-center"><div class="spinner w-8 h-8 border-4 rounded-full"></div><span class="ml-3">Processing query...</span></div>`;
+            queryMetrics.textContent = '';
+            
+            const startTime = performance.now();
+
+            try {
+                 const response = await fetch(`${API_BASE_URL}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query, connection_string: currentConnectionString })
+                });
+                
+                const endTime = performance.now();
+                const responseTime = ((endTime - startTime) / 1000).toFixed(2);
+                
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Query failed');
+
+                // Display Metrics
+                const cacheStatus = data.cache_hit ? 'HIT' : 'MISS';
+                queryMetrics.textContent = `Response Time: ${responseTime}s | Cache Status: ${cacheStatus} | Query Type: ${data.query_type}`;
+                
+                // Render Results
+                renderResults(data);
+
+            } catch(error) {
+                 resultsContent.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+            }
+        });
+
+        // --- Helper Functions ---
+        function setDbStatus(message, colorClass) {
+            dbStatus.textContent = message;
+            dbStatus.className = `mt-3 text-sm ${colorClass}`;
+        }
+
+        function setDocStatus(message, colorClass) {
+            docStatus.textContent = message;
+            docStatus.className = `mt-3 text-sm ${colorClass}`;
+        }
+        
+        function renderResults(data) {
+            let html = '';
+            
+            // SQL Results
+            if (data.sql_result && data.sql_result.length > 0) {
+                html += '<h4 class="text-lg font-semibold mb-2">Database Results</h4>';
+                const headers = Object.keys(data.sql_result[0]);
+                html += '<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-500">';
+                html += '<thead class="text-xs text-gray-700 uppercase bg-gray-50">';
+                html += `<tr>${headers.map(h => `<th scope="col" class="px-6 py-3">${h}</th>`).join('')}</tr></thead>`;
+                html += '<tbody>';
+                data.sql_result.forEach(row => {
+                    html += `<tr class="bg-white border-b">${headers.map(h => `<td class="px-6 py-4">${row[h]}</td>`).join('')}</tr>`;
+                });
+                html += '</tbody></table></div>';
+            }
+            
+            // Document Results
+            if (data.doc_result && data.doc_result.length > 0) {
+                html += '<h4 class="text-lg font-semibold mt-4 mb-2">Document Results</h4>';
+                html += '<div class="grid gap-4">';
+                data.doc_result.forEach(doc => {
+                    html += `<div class="bg-gray-50 p-4 border rounded-md"><p class="text-gray-700">${doc.content.replace(/\n/g, '<br>')}</p><span class="text-xs text-blue-500 mt-2 block">Relevance Score: ${doc.score.toFixed(4)}</span></div>`;
+                });
+                html += '</div>';
+            }
+            
+            if (!html) {
+                html = '<p class="text-gray-600">No results found.</p>';
+            }
+
+            resultsContent.innerHTML = html;
+        }
+
+    </script>
+
+</body>
+</html>

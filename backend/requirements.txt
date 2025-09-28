@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+python-multipart
+pypdf
+python-docx
+sentence-transformers
+faiss-cpu
+langchain-text-splitters
+litellm
