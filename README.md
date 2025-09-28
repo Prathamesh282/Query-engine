@@ -1,5 +1,4 @@
-````markdown
-# Synapse: AI Natural Language Query Engine
+# AI Natural Language Query Engine
 
 An intelligent, full-stack application that allows users to query a SQL database and unstructured documents using plain English. This project dynamically adapts to any database schema without hard-coding, leveraging a hybrid AI engine for comprehensive data retrieval.
 
